@@ -1,0 +1,169 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>TDC 2013 Floripa!!!</title>
+    <style>
+        .done {
+            text-decoration: line-through;
+
+        }
+    </style>
+    <link href="~/Content/bootstrap.css" rel="stylesheet" />
+    <link href="~/Content/bootstrap-responsive.css" rel="stylesheet" />
+    
+    <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
+    <script src="~/Scripts/jquery-1.9.1.js"></script>
+    <script src="~/Scripts/bootstrap.js"></script>
+    <script src="~/Scripts/underscore.js"></script>
+    <script src="~/Scripts/backbone.js"></script>
+    <script>
+        var App = {
+            Views: {},
+            Collections: {},
+            Models: {},
+            start: function() {
+                
+                Backbone.history.start();
+                var router = new App.Router();
+            }
+        };
+        
+        //model
+        App.Models.Todo = Backbone.Model.extend({
+            defaults: {
+                "status": "incomplete"
+            },
+            toggleStatus: function () {
+
+                if (this.get('status') === 'incomplete') {
+                    this.set('status', 'complete');
+                } else {
+                    this.set('status', 'incomplete');
+                }
+                this.save();
+            }
+        });
+        
+        App.Collections.Todo = Backbone.Collection.extend({
+            model: App.Models.Todo,
+            url: "/api/todo"
+        });
+        
+        App.Views.Todo = Backbone.View.extend({
+            initialize: function () {
+                this.model.on("change", this.render, this);
+            },
+            events: { "change input": "toggle" },
+            toggle: function () {
+                this.model.toggleStatus();
+            },
+            tagName: "li",
+            template: _.template("<label class=' <% if(status=='complete') print('done') %>'> <input type='checkbox'  <% if(status=='complete') print('checked') %> /> <%=description%> </label>"),
+            render: function () {
+                this.$el.html(this.template(this.model.toJSON()));
+                return this;
+            }
+        });
+        
+        App.Views.Todos = Backbone.View.extend({
+            initialize: function () {
+                this.listenTo(this.collection, "add", this.addOne, this);
+                this.listenTo(this.collection, "reset", this.render, this);
+            },
+            tagName: "ul",
+            render: function (data) {
+                if (data) this.collection = data;
+                this.$el.empty();
+                this.collection.forEach(this.addOne, this);
+                return this;
+            },
+            addOne: function (todo) {
+                var todoView = new App.Views.Todo({ model: todo });
+                this.$el.append(todoView.render().el);
+            }
+        });
+        
+        App.Views.AddTodo = Backbone.View.extend({
+            tagName: "form",
+            template: _.template("<input type='text' placeholder='Todo' /><button class='btn'>Inserir</button>"),
+            render: function () {
+                this.$el.html(this.template());
+                return this;
+            },
+            events: {
+                "submit": "criaTodo"
+            },
+            criaTodo: function (e) {
+                e.preventDefault();
+                var input = this.$el.find("input");
+                this.collection.create({ description: input.val() });
+                input.val("");
+            }
+        });
+
+        App.Router = Backbone.Router.extend({
+            initialize: function () {
+                App.Collections.todos = new App.Collections.Todo({ model: App.Models.Todo });
+                App.Views.todos = new App.Views.Todos({ el: $("#app ul"), collection: App.Collections.todos });
+                App.Collections.todos.fetch();
+                App.Views.addTodo = new App.Views.AddTodo({ el: "#app form", collection: App.Collections.todos });
+                App.Views.addTodo.render();
+            },
+            routes: {
+                "all": "all",
+                "done": "done",
+                "todo": "todo"
+            },
+            all: function () {
+                App.Views.todos.render(App.Collections.todos);
+            },
+            done: function () {
+                App.Views.todos.render(App.Collections.todos.where({ status: 'complete' }));
+            },
+            todo: function () {
+                App.Views.todos.render(App.Collections.todos.where({ status: 'incomplete' }));
+            }
+        });
+        $(function () {
+            App.start();
+        });
+        
+    </script>
+</head>
+<body>
+
+    <div class="container ">
+        <div class="row span6 offset3">
+            <div class="navbar navbar-inverse  ">
+                <div class="navbar-inner">
+                    <div class="container">
+                        <a class="btn btn-navbar" data-target=".subnav-collapse" data-toggle="collapse">
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                        </a>
+                        <a class="brand" href="#">TDC Floripa</a>
+                        <div class="nav-collapse subnav-collapse">
+                            <ul class="nav">
+                                <li><a href="#all">All</a></li>
+                                <li><a href="#todo">Todo</a></li>
+                                <li><a href="#done">Done</a></li>
+
+                            </ul>
+                        </div>
+                        <!-- /.nav-collapse -->
+                    </div>
+                </div>
+                <!-- /navbar-inner -->
+            </div>
+            <div id="app" class="well">
+                <form class="input-append">
+                </form>
+                <ul>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
